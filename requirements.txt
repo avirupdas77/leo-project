@@ -1,0 +1,9 @@
+speechrecognition
+webbrowser-python
+pyttsx3
+pygame
+gtts
+openai
+python-dotenv
+psutil
+requests
