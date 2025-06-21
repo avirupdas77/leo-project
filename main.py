@@ -1,7 +1,9 @@
+# Importing required libraries
+# These handle voice input/output, web access, AI responses, system info, and APIs
 import speech_recognition as sr
 import webbrowser
 import pyttsx3
-from musicLibrary import music
+from musicLibrary import music  # Custom music library with song links
 import openai
 from gtts import gTTS
 import pygame
@@ -12,7 +14,7 @@ import requests
 from dotenv import load_dotenv
 import time
 
-# Load environment variables
+# Load API keys securely from .env file
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 newsapi = os.getenv("NEWS_API_KEY")
@@ -21,11 +23,12 @@ weatherapi = os.getenv("WEATHER_API_KEY")
 # Initialize text-to-speech engine
 engine = pyttsx3.init()
 
-# Short-term memory
+# Store short-term conversation memory to provide context for AI responses
 conversation_history = [
     {"role": "system", "content": "You are Leo, a helpful and intelligent virtual assistant like Jarvis."}
 ]
 
+# Function to speak text using gTTS (Google Text-to-Speech) with pygame fallback
 def speak(text):
     try:
         tts = gTTS(text)
@@ -37,6 +40,7 @@ def speak(text):
         while pygame.mixer.music.get_busy():
             pygame.time.Clock().tick(10)
     except Exception as e:
+        # Fallback to pyttsx3 if gTTS fails (no internet etc.)
         print(f"TTS error: {e}")
         engine.say(text)
         engine.runAndWait()
@@ -45,6 +49,7 @@ def speak(text):
             pygame.mixer.music.unload()
             os.remove("temp.mp3")
 
+# Function to get weather using OpenWeatherMap API
 def get_weather(city):
     api_key = os.getenv("WEATHER_API_KEY")
     if not api_key:
@@ -68,6 +73,7 @@ def get_weather(city):
     except requests.exceptions.RequestException as e:
         return f"Weather request failed: {e}"
 
+# Function to handle AI-based responses using OpenAI's GPT-3.5 model
 def aiProcess(command):
     try:
         conversation_history.append({"role": "user", "content": command})
@@ -81,6 +87,7 @@ def aiProcess(command):
     except Exception as e:
         return f"Sorry, I couldn't process your request: {e}"
 
+# Get battery status and current system time
 def get_system_info():
     battery = psutil.sensors_battery()
     percent = battery.percent if battery else 'unknown'
@@ -88,6 +95,7 @@ def get_system_info():
     time_str = datetime.datetime.now().strftime("%I:%M %p on %A")
     return f"Battery at {percent} percent, plugged in: {plugged}. The time is {time_str}."
 
+# Function to return a random tech-related joke
 def tell_joke():
     jokes = [
         "Why don’t scientists trust atoms? Because they make up everything!",
@@ -96,9 +104,11 @@ def tell_joke():
     ]
     return jokes[datetime.datetime.now().second % len(jokes)]
 
+# Core function that maps voice commands to actions
 def processCommand(c):
     c = c.lower()
     if "open" in c:
+        # Opening websites based on keywords
         if "google" in c:
             webbrowser.open("https://google.com")
         elif "instagram" in c:
@@ -116,6 +126,7 @@ def processCommand(c):
         else:
             speak("I couldn't recognize the site you wanted to open.")
     elif "play" in c:
+        # Playing music from the predefined library
         try:
             words = c.split()
             song_name = " ".join(words[1:]).strip().title()
@@ -127,15 +138,18 @@ def processCommand(c):
         except:
             speak("Something went wrong while playing music.")
     elif "weather" in c:
-        city = "Kolkata"  # Can be replaced with voice input or extraction
+        # Fetch weather report (city currently fixed as Kolkata)
+        city = "Kolkata"
         weather_report = get_weather(city)
         speak(weather_report)
     elif "time" in c or "battery" in c:
+        # Speak system info
         info = get_system_info()
         speak(info)
     elif "joke" in c:
         speak(tell_joke())
     elif "news" in c:
+        # Read top 5 news headlines using NewsAPI
         if not newsapi:
             speak("News API key not found. Please check your .env file.")
             return
@@ -144,7 +158,7 @@ def processCommand(c):
             response = requests.get(url)
             if response.status_code == 200:
                 data = response.json()
-                articles = data.get("articles", [])[:5]  # top 5 headlines
+                articles = data.get("articles", [])[:5]
                 if not articles:
                     speak("Sorry, I couldn't find any news right now.")
                 else:
@@ -156,12 +170,15 @@ def processCommand(c):
         except requests.exceptions.RequestException as e:
             speak(f"News request failed: {e}")
     elif any(word in c for word in ["exit", "quit", "goodbye", "stop"]):
+        # Graceful exit on voice command
         speak("Goodbye! Shutting down now.")
         exit()
     else:
+        # AI handles generic or undefined commands
         output = aiProcess(c)
         speak(output)
 
+# MAIN LOOP — voice-controlled trigger word detection and execution
 if __name__ == "__main__":
     speak("Initializing Leo...")
     while True:
@@ -179,7 +196,7 @@ if __name__ == "__main__":
                     command = recognizer.recognize_google(audio)
                     print("Command:", command)
                     processCommand(command)
-            time.sleep(1)  # Prevent overload
+            time.sleep(1)  # Prevent CPU overload
         except Exception as e:
             print("Error:", e)
             time.sleep(1)
